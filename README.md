@@ -1,8 +1,15 @@
 # Real-Time Collaborative Code Editor
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-online-22c55e?style=for-the-badge)](https://real-time-code-editor-3-t6mg.onrender.com/)
+
 A live, multi-user code editing platform — think Google Docs for code, similar to Replit.
 Multiple users join a shared room and edit the same document simultaneously with
 conflict-free synchronization, live cursors, presence tracking, and syntax highlighting.
+
+**🔗 Live demo:** https://real-time-code-editor-3-t6mg.onrender.com/
+
+> Open the link in two browser tabs, join the same Room ID, and edit together.
+> _(Hosted on Render's free tier — the first load may take ~30–50s while the server wakes from sleep.)_
 
 ## Architecture
 
@@ -66,6 +73,14 @@ Or run the whole stack (backend + frontend + Redis) with Docker:
 docker compose up --build
 ```
 
+## Deployment
+
+Deployed live on **Render** as a single service (the Node backend serves the built
+React frontend and the Socket.IO API from one URL): https://real-time-code-editor-3-t6mg.onrender.com/
+
+Infrastructure-as-code for a scalable AWS deployment (ECS/Fargate + ElastiCache + ALB)
+is also provided under [`infra/terraform`](infra/terraform).
+
 ## Status
 
-🚧 In active development. See build phases in project notes.
+✅ Live and functional — real-time collaborative editing, chat, presence, run-code, and settings.
