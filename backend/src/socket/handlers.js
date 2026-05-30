@@ -42,6 +42,20 @@ export function registerHandlers(io, socket) {
     socket.to(roomId).emit('presence:cursor', { socketId: socket.id, cursor });
   });
 
+  // Group chat: broadcast to the whole room (including the sender, so their
+  // own message appears too). Identity comes from the socket, not the client.
+  socket.on('chat:message', ({ roomId, text }) => {
+    if (!roomId || !text?.trim()) return;
+    io.to(roomId).emit('chat:message', {
+      id: `${socket.id}-${Date.now()}`,
+      socketId: socket.id,
+      name: socket.data.user?.name || 'Anonymous',
+      color: socket.data.user?.color || '#6366f1',
+      text: String(text).slice(0, 2000),
+      ts: Date.now(),
+    });
+  });
+
   // --- Yjs CRDT relay ------------------------------------------------------
   // The server is a blind relay: it forwards opaque binary CRDT blobs to the
   // room and never interprets them. Yjs guarantees convergence regardless of
