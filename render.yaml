@@ -1,0 +1,48 @@
+# Render Blueprint — one-click deploy of the collaborative code editor.
+#
+# In Render:  New +  ->  Blueprint  ->  connect this repository.
+# Render reads this file and provisions both services on the free plan.
+#
+#   • rtce-backend  : Node.js + Socket.IO web service (public URL)
+#   • rtce-frontend : static React/Vite site (served from a CDN)
+#
+# A single free backend instance uses the in-memory adapter (our graceful
+# fallback), so Redis isn't required here. To demonstrate multi-instance
+# scaling, add a Redis instance and set REDIS_URL on the backend.
+
+services:
+  - type: web
+    name: rtce-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    region: singapore
+    buildCommand: npm ci
+    startCommand: node src/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Public demo: allow any origin (the frontend is on a different host).
+      - key: CORS_ORIGIN
+        value: "*"
+
+  - type: web
+    name: rtce-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      # Point the client at the backend. Render supplies the bare hostname;
+      # the client prepends https:// (see frontend/src/socket.js).
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: rtce-backend
+          property: host
+    routes:
+      # SPA fallback: serve index.html for any client-side route.
+      - type: rewrite
+        source: /*
+        destination: /index.html
