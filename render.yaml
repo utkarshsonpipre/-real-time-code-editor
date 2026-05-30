@@ -1,51 +1,30 @@
-# Render Blueprint — one-click deploy of the collaborative code editor.
+# Render Blueprint — deploys the whole app as ONE service at a single URL.
 #
 # In Render:  New +  ->  Blueprint  ->  connect this repository.
-# Render reads this file and provisions both services on the free plan.
 #
-#   • collab-editor-api : Node.js + Socket.IO web service (public URL)
-#   • collab-editor-web : static React/Vite site (served from a CDN)
+# The build compiles the React frontend, and the Node backend serves that
+# static build alongside the Socket.IO API. Frontend connects to the same
+# origin (VITE_BACKEND_URL=""), so there's no cross-service wiring.
 #
-# Service names are intentionally unique to avoid colliding with any other
-# project already on your Render account.
-#
-# A single free backend instance uses the in-memory adapter (our graceful
-# fallback), so Redis isn't required here. To demonstrate multi-instance
-# scaling, add a Redis instance and set REDIS_URL on the backend.
+# Single free instance uses the in-memory adapter. To scale horizontally,
+# add a Redis instance and set REDIS_URL on the service.
 
 services:
   - type: web
-    name: collab-editor-api
+    name: collab-editor
     runtime: node
     rootDir: backend
     plan: free
     region: singapore
-    buildCommand: npm ci
+    # Install backend deps, then build the frontend into frontend/dist.
+    buildCommand: npm ci && cd ../frontend && npm ci && npm run build
     startCommand: node src/index.js
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      # Public demo: allow any origin (the frontend is on a different host).
       - key: CORS_ORIGIN
         value: "*"
-
-  - type: web
-    name: collab-editor-web
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm ci && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      # Point the client at the backend. Render supplies the bare hostname;
-      # the client prepends https:// (see frontend/src/socket.js).
+      # Empty => the client talks to the same origin (this same service).
       - key: VITE_BACKEND_URL
-        fromService:
-          type: web
-          name: collab-editor-api
-          property: host
-    routes:
-      # SPA fallback: serve index.html for any client-side route.
-      - type: rewrite
-        source: /*
-        destination: /index.html
+        value: ""

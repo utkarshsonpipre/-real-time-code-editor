@@ -1,4 +1,7 @@
 import http from 'node:http';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import { Server } from 'socket.io';
@@ -12,6 +15,12 @@ import { register, observeIo } from './metrics.js';
 // Identifies which backend instance served a request — useful for confirming
 // that load is actually spread across instances behind a balancer.
 const INSTANCE_ID = process.env.INSTANCE_ID || `pid-${process.pid}`;
+
+// Single-service mode: if the built frontend is present, this server also
+// serves it, so the whole app runs as ONE deployment at one URL.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CLIENT_DIR = path.resolve(__dirname, '../../frontend/dist');
+const serveClient = fs.existsSync(path.join(CLIENT_DIR, 'index.html'));
 
 const app = express();
 app.use(cors({ origin: config.corsOrigin }));
@@ -56,9 +65,19 @@ app.get('/metrics', async (_req, res) => {
   res.end(await register.metrics());
 });
 
-app.get('/', (_req, res) => {
-  res.json({ service: 'rtce-backend', version: '0.1.0', instance: INSTANCE_ID });
-});
+// Serve the built frontend (single-service mode). API routes above take
+// precedence; Socket.IO handles /socket.io at the HTTP-server level, so the
+// SPA fallback below never intercepts it. When dist isn't present (e.g. the
+// Docker setup where nginx serves the client), this is skipped.
+if (serveClient) {
+  app.use(express.static(CLIENT_DIR));
+  app.get('*', (_req, res) => res.sendFile(path.join(CLIENT_DIR, 'index.html')));
+  console.log(`[static] serving frontend from ${CLIENT_DIR}`);
+} else {
+  app.get('/', (_req, res) => {
+    res.json({ service: 'rtce-backend', version: '0.1.0', instance: INSTANCE_ID });
+  });
+}
 
 // --- Socket.IO connections -------------------------------------------------
 
