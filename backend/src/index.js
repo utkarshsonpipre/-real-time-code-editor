@@ -23,17 +23,11 @@ const io = new Server(server, {
 });
 
 // --- Redis adapter (multi-instance Pub/Sub) --------------------------------
-// With the adapter attached, room broadcasts are published to Redis and
-// delivered to clients on every instance. Without Redis we fall back to the
-// default in-memory adapter (single instance).
-const redis = await createRedisClients();
-const redisEnabled = Boolean(redis);
-if (redis) {
-  io.adapter(createAdapter(redis.pubClient, redis.subClient));
-  console.log('[socket.io] using Redis adapter — multi-instance ready');
-} else {
-  console.log('[socket.io] using in-memory adapter — single instance');
-}
+// Connected in the background AFTER the server starts listening (below), so a
+// slow or absent Redis never delays the port from opening. Without Redis we
+// run single-instance with the default in-memory adapter.
+let redisEnabled = false;
+let redisClients = null;
 
 // --- HTTP routes -----------------------------------------------------------
 
@@ -75,19 +69,41 @@ io.on('connection', (socket) => {
   registerHandlers(io, socket);
 });
 
+// Start listening immediately so the platform detects the open port right
+// away (Render/ECS health checks don't wait on Redis).
 server.listen(config.port, () => {
+  const origins = Array.isArray(config.corsOrigin)
+    ? config.corsOrigin.join(', ')
+    : config.corsOrigin;
   console.log(`rtce-backend [${INSTANCE_ID}] listening on :${config.port} (${config.nodeEnv})`);
-  console.log(`CORS origins: ${config.corsOrigin.join(', ')}`);
+  console.log(`CORS origins: ${origins}`);
 });
+
+// Connect Redis in the background and attach the adapter when it's ready.
+// Purely optional — the app is fully functional single-instance without it.
+createRedisClients()
+  .then((redis) => {
+    if (redis) {
+      io.adapter(createAdapter(redis.pubClient, redis.subClient));
+      redisClients = redis;
+      redisEnabled = true;
+      console.log('[socket.io] using Redis adapter — multi-instance ready');
+    } else {
+      console.log('[socket.io] using in-memory adapter — single instance');
+    }
+  })
+  .catch((err) => {
+    console.warn(`[redis] setup failed: ${err.message} — staying single-instance`);
+  });
 
 // Graceful shutdown so containers stop cleanly.
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, async () => {
     console.log(`\n${signal} received — shutting down`);
     io.close();
-    if (redis) {
-      await redis.pubClient.quit().catch(() => {});
-      await redis.subClient.quit().catch(() => {});
+    if (redisClients) {
+      await redisClients.pubClient.quit().catch(() => {});
+      await redisClients.subClient.quit().catch(() => {});
     }
     server.close(() => process.exit(0));
   });
