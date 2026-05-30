@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7
+
+  backend:
+    name: Backend integration test
+    runs-on: ubuntu-latest
+
+    # Real Redis so we exercise the adapter path, not the in-memory fallback.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend dependencies (test client uses socket.io-client + yjs)
+        working-directory: frontend
+        run: npm ci
+
+      - name: Start backend
+        working-directory: backend
+        env:
+          PORT: 4000
+          REDIS_URL: redis://localhost:6379
+          CORS_ORIGIN: "*"
+        run: |
+          node src/index.js &
+          echo $! > backend.pid
+          echo "Waiting for backend health..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4000/health > /dev/null; then
+              echo "Backend healthy"; curl -s http://localhost:4000/health; echo; exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend failed to become healthy"; exit 1
+
+      - name: Run collaboration integration test
+        working-directory: frontend
+        env:
+          BACKEND_URL: http://localhost:4000
+        run: node scripts/collab-test.mjs
+
+      - name: Stop backend
+        if: always()
+        working-directory: backend
+        run: kill "$(cat backend.pid)" || true
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Verify both images build cleanly (no push here — that's the deploy workflow).
+      - name: Build backend image
+        run: docker build -t rtce-backend:ci ./backend
+
+      - name: Build frontend image
+        run: docker build -t rtce-frontend:ci ./frontend

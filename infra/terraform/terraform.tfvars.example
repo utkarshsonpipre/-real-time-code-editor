@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars and adjust.
+aws_region   = "ap-south-1"
+project_name = "rtce"
+
+# The GitHub repo allowed to deploy via OIDC (owner/name).
+github_repo = "your-org/real-time-code-editor"
+
+# Scale the backend to >=2 to demonstrate Redis-backed multi-instance sync.
+backend_desired_count  = 2
+frontend_desired_count = 1

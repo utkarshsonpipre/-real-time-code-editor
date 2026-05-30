@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # The backend exposes /metrics (prom-client). On the compose network it's
+  # reachable as backend:4000. With multiple instances, list each target (or
+  # use a service-discovery mechanism); the `instance` label distinguishes them.
+  - job_name: rtce-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["backend:4000"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

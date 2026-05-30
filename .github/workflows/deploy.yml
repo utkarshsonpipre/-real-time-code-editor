@@ -1,0 +1,95 @@
+name: Deploy to AWS
+
+# Builds & pushes the backend and frontend images to Amazon ECR, then rolls
+# the ECS/Fargate services to the new images.
+#
+# Required GitHub configuration (Settings -> Secrets and variables -> Actions):
+#   Secrets:
+#     AWS_DEPLOY_ROLE_ARN     IAM role ARN that GitHub OIDC assumes to deploy
+#   Variables:
+#     AWS_REGION              e.g. ap-south-1
+#     ECR_BACKEND_REPO        ECR repo URI for the backend image
+#     ECR_FRONTEND_REPO       ECR repo URI for the frontend image
+#     ECS_CLUSTER             ECS cluster name
+#     ECS_BACKEND_SERVICE     ECS service name for the backend
+#     ECS_FRONTEND_SERVICE    ECS service name for the frontend
+#
+# These resources are provisioned by the infrastructure step (Task 7).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+# OIDC: lets the job assume an AWS role without storing static credentials.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build & push images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: ./backend
+            repo_var: ECR_BACKEND_REPO
+          - name: frontend
+            context: ./frontend
+            repo_var: ECR_FRONTEND_REPO
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push ${{ matrix.name }}
+        env:
+          REPO: ${{ vars[matrix.repo_var] }}
+          SHA: ${{ github.sha }}
+        run: |
+          docker build -t "$REPO:$SHA" -t "$REPO:latest" "${{ matrix.context }}"
+          docker push "$REPO:$SHA"
+          docker push "$REPO:latest"
+
+  deploy:
+    name: Roll ECS services
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Services pull the freshly pushed :latest image on a forced deployment.
+      # (A stricter setup would register a new task definition pinned to the
+      #  immutable :$SHA tag — straightforward to add once infra exists.)
+      - name: Force new deployment of backend service
+        run: |
+          aws ecs update-service \
+            --cluster "${{ vars.ECS_CLUSTER }}" \
+            --service "${{ vars.ECS_BACKEND_SERVICE }}" \
+            --force-new-deployment
+
+      - name: Force new deployment of frontend service
+        run: |
+          aws ecs update-service \
+            --cluster "${{ vars.ECS_CLUSTER }}" \
+            --service "${{ vars.ECS_FRONTEND_SERVICE }}" \
+            --force-new-deployment
+
+      - name: Wait for services to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster "${{ vars.ECS_CLUSTER }}" \
+            --services "${{ vars.ECS_BACKEND_SERVICE }}" "${{ vars.ECS_FRONTEND_SERVICE }}"

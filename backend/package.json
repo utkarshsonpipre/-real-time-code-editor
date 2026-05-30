@@ -1,0 +1,26 @@
+{
+  "name": "rtce-backend",
+  "version": "0.1.0",
+  "description": "Real-Time Collaborative Code Editor — backend (Express + Socket.IO)",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "prom-client": "^15.1.3",
+    "redis": "^6.0.0",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

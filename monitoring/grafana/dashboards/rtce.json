@@ -1,0 +1,105 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "title": "RTCE — Realtime Collaborative Editor",
+  "uid": "rtce-overview",
+  "tags": ["rtce"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "5s",
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Open connections",
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rtce_socket_connections)", "datasource": { "type": "prometheus", "uid": "PROMETHEUS" } }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Active rooms",
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rtce_rooms_active)", "datasource": { "type": "prometheus", "uid": "PROMETHEUS" } }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total room joins",
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rtce_room_joins_total)", "datasource": { "type": "prometheus", "uid": "PROMETHEUS" } }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Resident memory",
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rtce_process_resident_memory_bytes)", "datasource": { "type": "prometheus", "uid": "PROMETHEUS" } }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Document update rate (ops/s)",
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15 }, "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(rtce_doc_updates_total[1m]))", "legendFormat": "doc updates", "datasource": { "type": "prometheus", "uid": "PROMETHEUS" } },
+        { "refId": "B", "expr": "sum(rate(rtce_awareness_updates_total[1m]))", "legendFormat": "awareness updates", "datasource": { "type": "prometheus", "uid": "PROMETHEUS" } }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Connections over time",
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 15 }, "unit": "short" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "rtce_socket_connections", "legendFormat": "{{instance}}", "datasource": { "type": "prometheus", "uid": "PROMETHEUS" } }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Event loop lag (p99, seconds)",
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "rtce_nodejs_eventloop_lag_p99_seconds", "legendFormat": "{{instance}}", "datasource": { "type": "prometheus", "uid": "PROMETHEUS" } }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Heap used (bytes)",
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 }, "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "rtce_nodejs_heap_size_used_bytes", "legendFormat": "{{instance}}", "datasource": { "type": "prometheus", "uid": "PROMETHEUS" } }
+      ]
+    }
+  ]
+}

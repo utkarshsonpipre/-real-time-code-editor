@@ -1,0 +1,80 @@
+# Full local stack: Redis + backend (Socket.IO) + frontend (nginx).
+#
+#   docker compose up --build      # start everything
+#   open http://localhost:8080     # the app
+#
+# Horizontal scaling is handled by the Redis adapter — multiple backend
+# instances stay in sync via Pub/Sub. On AWS this becomes multiple Fargate
+# tasks behind an ALB; locally you can preview it with:
+#   docker compose up --build --scale backend=2
+# (nginx round-robins to the backend service's replicas via Docker DNS).
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379" # exposed for local debugging; not required by the app
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      # Browser loads the app from the frontend origin; allow it for CORS.
+      CORS_ORIGIN: http://localhost:8080
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "4000:4000" # exposed so /health is reachable directly for debugging
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Empty => client uses same origin; nginx proxies /socket.io to backend.
+        VITE_BACKEND_URL: ""
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+  # --- Monitoring (optional) ---
+  # Enable with:  docker compose --profile monitoring up
+  #   Prometheus -> http://localhost:9090
+  #   Grafana    -> http://localhost:3000  (anonymous viewer enabled)
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
