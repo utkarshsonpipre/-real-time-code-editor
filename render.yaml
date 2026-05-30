@@ -25,6 +25,5 @@ services:
         value: production
       - key: CORS_ORIGIN
         value: "*"
-      # Empty => the client talks to the same origin (this same service).
-      - key: VITE_BACKEND_URL
-        value: ""
+      # No VITE_BACKEND_URL needed: a production build connects to the same
+      # origin automatically (see frontend/src/socket.js).

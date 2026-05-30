@@ -1,24 +1,21 @@
 import { io } from 'socket.io-client';
 
 // Where to reach the backend:
-//  - dev (var unset):         http://localhost:4000 (Vite on 5173, backend on 4000)
-//  - same-origin (var=""):    one service serves both API + static site (Render single service,
-//                             or Docker+nginx) — connect to the current origin
-//  - Render split (host only):a bare hostname like "x.onrender.com" — add https://
+//  - VITE_BACKEND_URL set to a URL/host -> use it (split frontend/backend deploy)
+//  - production build, nothing set       -> same origin (single service / Docker+nginx)
+//  - dev                                 -> http://localhost:4000 (Vite 5173, backend 4000)
 const fromEnv = import.meta.env.VITE_BACKEND_URL;
 let BACKEND_URL;
-if (fromEnv === undefined) {
-  BACKEND_URL = 'http://localhost:4000';
-} else if (fromEnv === '') {
+if (fromEnv && fromEnv.trim() !== '') {
+  BACKEND_URL = /^https?:\/\//i.test(fromEnv) ? fromEnv : `https://${fromEnv}`;
+} else if (import.meta.env.PROD) {
   BACKEND_URL = undefined; // same origin
-} else if (!/^https?:\/\//i.test(fromEnv)) {
-  BACKEND_URL = `https://${fromEnv}`;
 } else {
-  BACKEND_URL = fromEnv;
+  BACKEND_URL = 'http://localhost:4000';
 }
 
-// A single shared Socket.IO connection for the whole app. Passing `undefined`
-// connects to the page's own origin.
+// A single shared Socket.IO connection for the whole app. `undefined` connects
+// to the page's own origin.
 export const socket = io(BACKEND_URL, {
   transports: ['websocket'],
 });
