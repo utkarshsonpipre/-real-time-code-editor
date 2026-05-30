@@ -34,7 +34,6 @@ const NAV = [
   { id: 'run', title: 'Run', Icon: Icons.Run },
   { id: 'users', title: 'Users', Icon: Icons.Users },
   { id: 'settings', title: 'Settings', Icon: Icons.Settings },
-  { id: 'ai', title: 'AI Assistant', Icon: Icons.Sparkle },
 ];
 
 export default function Workspace({ session, connected, onLeave }) {
@@ -167,7 +166,6 @@ export default function Workspace({ session, connected, onLeave }) {
         {active === 'settings' && (
           <SettingsPanel settings={settings} setSettings={setSettings} onReset={() => setSettings(DEFAULTS)} />
         )}
-        {active === 'ai' && <AiPanel />}
       </aside>
 
       {/* Editor */}
@@ -352,14 +350,3 @@ function SettingsPanel({ settings, setSettings, onReset }) {
   );
 }
 
-function AiPanel() {
-  return (
-    <div className="panel-body">
-      <PanelHeader>AI Assistant</PanelHeader>
-      <div className="ai-empty">
-        <Icons.Sparkle />
-        <p>AI code assistance is coming soon.</p>
-      </div>
-    </div>
-  );
-}
