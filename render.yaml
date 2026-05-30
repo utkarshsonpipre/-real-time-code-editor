@@ -3,8 +3,11 @@
 # In Render:  New +  ->  Blueprint  ->  connect this repository.
 # Render reads this file and provisions both services on the free plan.
 #
-#   • rtce-backend  : Node.js + Socket.IO web service (public URL)
-#   • rtce-frontend : static React/Vite site (served from a CDN)
+#   • collab-editor-api : Node.js + Socket.IO web service (public URL)
+#   • collab-editor-web : static React/Vite site (served from a CDN)
+#
+# Service names are intentionally unique to avoid colliding with any other
+# project already on your Render account.
 #
 # A single free backend instance uses the in-memory adapter (our graceful
 # fallback), so Redis isn't required here. To demonstrate multi-instance
@@ -12,7 +15,7 @@
 
 services:
   - type: web
-    name: rtce-backend
+    name: collab-editor-api
     runtime: node
     rootDir: backend
     plan: free
@@ -28,7 +31,7 @@ services:
         value: "*"
 
   - type: web
-    name: rtce-frontend
+    name: collab-editor-web
     runtime: static
     rootDir: frontend
     buildCommand: npm ci && npm run build
@@ -39,7 +42,7 @@ services:
       - key: VITE_BACKEND_URL
         fromService:
           type: web
-          name: rtce-backend
+          name: collab-editor-api
           property: host
     routes:
       # SPA fallback: serve index.html for any client-side route.
